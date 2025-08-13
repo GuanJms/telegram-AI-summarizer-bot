@@ -13,7 +13,11 @@ services:
       - PORT=9095
       - DB_PATH=/data/chat.db
     volumes:
-      - bot-data:/data
+      - type: bind
+        source: ./data
+        target: /data
+        bind:
+          create_host_path: true
     restart: unless-stopped
     healthcheck:
       test:
@@ -35,8 +39,8 @@ services:
     container_name: sqlite-sidecar
     command: ["sh", "-c", "apk add --no-cache sqlite && tail -f /dev/null"]
     volumes:
-      - bot-data:/data
-
-volumes:
-  bot-data:
-    driver: local
+      - type: bind
+        source: ./data
+        target: /data
+        bind:
+          create_host_path: true
