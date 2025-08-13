@@ -1,9 +1,8 @@
-version: "3.8"
-
 services:
   telegram-bot:
     image: jamesguan777/telegram-trader-bot:latest
     container_name: telegram-trader-bot
+    user: "1001:1001"
     ports:
       - "9095:9095"
     environment:
@@ -13,11 +12,7 @@ services:
       - PORT=9095
       - DB_PATH=/data/chat.db
     volumes:
-      - type: bind
-        source: ./data
-        target: /data
-        bind:
-          create_host_path: true
+      - ./data:/data
     restart: unless-stopped
     healthcheck:
       test:
@@ -38,9 +33,6 @@ services:
     image: alpine:3.19
     container_name: sqlite-sidecar
     command: ["sh", "-c", "apk add --no-cache sqlite && tail -f /dev/null"]
+    user: "0:0"
     volumes:
-      - type: bind
-        source: ./data
-        target: /data
-        bind:
-          create_host_path: true
+      - ./data:/data

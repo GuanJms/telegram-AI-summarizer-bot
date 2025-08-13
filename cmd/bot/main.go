@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 
 	"telegramBotTrade/internal/config"
 	"telegramBotTrade/internal/server"
@@ -13,6 +14,8 @@ import (
 func main() {
 	cfg := config.Load()
 
+	// Ensure parent directory for the DB exists
+	_ = os.MkdirAll(filepath.Dir(cfg.DBPath), 0o755)
 	db, err := storage.OpenSQLite("file:" + cfg.DBPath + "?_fk=1")
 	if err != nil {
 		log.Fatal(err)
