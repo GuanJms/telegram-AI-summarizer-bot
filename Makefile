@@ -152,6 +152,32 @@ docker-login:
 	@echo "Logging in to Docker registry..."
 	docker login
 
+# Docker Compose helpers
+.PHONY: compose-up compose-down compose-logs compose-ps compose-restart compose-pull
+compose-up:
+	@echo "Starting services with Docker Compose..."
+	docker compose up -d --build
+
+compose-down:
+	@echo "Stopping services with Docker Compose..."
+	docker compose down
+
+compose-logs:
+	@echo "Tailing Docker Compose logs (Ctrl+C to stop)..."
+	docker compose logs -f
+
+compose-ps:
+	@echo "Listing Docker Compose services..."
+	docker compose ps
+
+compose-restart:
+	@echo "Restarting bot service..."
+	docker compose restart telegram-bot
+
+compose-pull:
+	@echo "Pulling images defined in docker-compose.yml..."
+	docker compose pull
+
 # Development helpers
 .PHONY: install-tools
 install-tools:
