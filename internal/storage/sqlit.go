@@ -2,6 +2,8 @@ package storage
 
 import (
 	"database/sql"
+	// Register sqlite3 driver
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type DB interface {
