@@ -1,11 +1,12 @@
 # Multi-stage build for Telegram Trader Coder Bot
 
-# Build stage
-FROM golang:1.24-alpine AS builder
+# Build stage (Debian/glibc to avoid musl CGO issues with go-sqlite3)
+FROM golang:1.24-bookworm AS builder
 
-# Install build dependencies
-# Install build dependencies (CGO needs a C toolchain for go-sqlite3)
-RUN apk add --no-cache git ca-certificates tzdata build-base
+# Install build dependencies (CGO toolchain)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates tzdata build-essential pkg-config git && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
@@ -22,15 +23,16 @@ COPY . .
 # Build the application for linux/amd64 explicitly
 RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o bot ./cmd/bot
 
-# Final stage
-FROM alpine:latest
+# Final stage (Debian runtime with glibc)
+FROM debian:bookworm-slim
 
 # Install runtime dependencies
-RUN apk --no-cache add ca-certificates tzdata sqlite
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates tzdata wget sqlite3 && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN addgroup -g 1001 -S appgroup && \
-    adduser -u 1001 -S appuser -G appgroup
+RUN useradd -u 1001 -m appuser
 
 # Set working directory
 WORKDIR /app
@@ -43,7 +45,7 @@ COPY --from=builder /app/bot .
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data && \
-    chown -R appuser:appgroup /app
+    chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser
