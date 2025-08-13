@@ -35,4 +35,8 @@ services:
     command: ["sh", "-c", "apk add --no-cache sqlite && tail -f /dev/null"]
     user: "0:0"
     volumes:
-      - ./data:/data
+      - type: bind
+        source: ./data
+        target: /data
+        bind:
+          create_host_path: true
