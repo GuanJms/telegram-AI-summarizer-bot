@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"telegramBotTrade/internal/storage"
@@ -29,6 +30,7 @@ func NewBot(token, webhookURL string, db storage.DB, openAIKey string) (*Bot, er
 	if _, err := api.Request(webhook); err != nil {
 		return nil, err
 	}
+	log.Printf("telegram: webhook set to %s", webhookURL)
 
 	s := storage.NewStore(db)
 	h := NewHandlers(api, s, openAIKey)
@@ -42,6 +44,11 @@ func (b *Bot) WebhookHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 		http.Error(w, "bad update", 400)
 		return
+	}
+	if update.Message != nil {
+		log.Printf("webhook: chat_id=%d from=%d text=%q", update.Message.Chat.ID, update.Message.From.ID, update.Message.Text)
+	} else {
+		log.Printf("webhook: non-message update received")
 	}
 	if update.Message != nil {
 		go b.h.HandleMessage(update.Message)

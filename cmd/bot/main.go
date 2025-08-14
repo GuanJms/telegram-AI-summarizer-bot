@@ -21,18 +21,21 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
+	log.Printf("db: opened sqlite at %s", cfg.DBPath)
 	if err := storage.InitSchema(db); err != nil {
 		log.Fatal(err)
 	}
+	log.Println("db: schema ensured (messages table)")
 
 	tg, err := telegram.NewBot(cfg.TelegramToken, cfg.WebhookPublicURL, db, cfg.OpenAIKey)
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("telegram: bot initialized, webhook target %s", cfg.WebhookPublicURL)
 
 	mux := server.NewHTTPMux(tg.WebhookHandler) // registers /telegram/webhook
 	addr := ":" + cfg.Port
-	log.Println("listening on", addr)
+	log.Println("http: listening on", addr)
 	if err := server.ListenAndServe(addr, mux); err != nil {
 		log.Println("server error:", err)
 		os.Exit(1)

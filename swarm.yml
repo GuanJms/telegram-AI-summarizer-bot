@@ -1,0 +1,41 @@
+version: '3'
+
+services:
+  telegram-bot:
+    image: jamesguan777/telegram-trader-bot:latest
+    user: "1001:1001"
+    deploy:
+      mode: replicated
+      replicas: 1
+    ports:
+      - "9095:9095"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:9095/healthz",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  sqlite:
+    image: alpine:3.19
+    command: ["sh", "-c", "apk add --no-cache sqlite && tail -f /dev/null"]
+    user: "0:0"
+    deploy:
+      mode: replicated
+      replicas: 1
+    volumes:
+      - ./data:/data
+
+
