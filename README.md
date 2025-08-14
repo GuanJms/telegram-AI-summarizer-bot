@@ -147,6 +147,24 @@ docker-compose up -d --build
 docker-compose --profile production up -d --build
 ```
 
+### Caddy (Production) with Docker Stack
+
+- This repo includes a sample Caddyfile at `caddy/Caddyfile.production` targeting a Docker stack named `tg`.
+- Ensure your Docker service names match what the Caddyfile expects (e.g., `tg_telegram-trader-bot`).
+- Deploy your stack with a project name of `tg` so Caddy can resolve the upstream:
+
+```bash
+# From the project root
+docker compose -p tg --profile production up -d --build
+
+# Or using docker stack (if you have a Swarm):
+docker stack deploy -c docker-stack.yml tg
+```
+
+- The Caddyfile routes:
+  - `<you-domain>/telegram/webhook` and `/healthz` → `http://tg_telegram-trader-bot:9095`
+  - Adjust the hostname and service name if you change your stack or project name.
+
 ### Custom Docker Image
 
 ```bash

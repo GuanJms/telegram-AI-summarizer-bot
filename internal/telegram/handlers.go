@@ -20,6 +20,8 @@ var (
 	reStock = regexp.MustCompile(`^/stock(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+-]+)(?:\s+(1d|1w|1m))?$`)
 	// /stocks S1 S2 ... [1d|1w|1m]
 	reStocks = regexp.MustCompile(`^/stocks(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+\-\s]+?)(?:\s+(1d|1w|1m))?$`)
+	// /help
+	reHelp = regexp.MustCompile(`^/(help|start)(?:@[\w_]+)?$`)
 	// /stocks-index S1 S2 ... [interval] [window]
 	// interval one of 1m|5m|15m|1h|1d, window e.g. 1d|5d|1m|3m|6m|1y|2y|5y|10y|30y
 	reStocksIndex = regexp.MustCompile(`^/stocks-index(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+\-\s]+?)(?:\s+(1m|5m|15m|1h|1d))?(?:\s+(1d|5d|1m|3m|6m|1y|2y|5y|10y|30y))?$`)
@@ -73,6 +75,10 @@ func (h *Handlers) HandleMessage(m *tgbotapi.Message) {
 			window = g[2]
 		}
 		h.handleStock(m.Chat.ID, sym, window)
+
+	case reHelp.MatchString(txt):
+		// Show commands help
+		h.handleHelp(m.Chat.ID)
 
 	case reStocks.MatchString(txt):
 		g := reStocks.FindStringSubmatch(txt)
@@ -254,6 +260,18 @@ func (h *Handlers) handleMultiStock(chatID int64, syms []string, window string) 
 	}
 	photo.Caption = "Multi: " + strings.Join(syms, ", ") + " • 5m • " + strings.ToUpper(w)
 	h.api.Send(photo)
+}
+
+func (h *Handlers) handleHelp(chatID int64) {
+	help := "Commands\n\n" +
+		"- /summary [hours] - Summarize chat messages from the last N hours (default: 1, max: 48)\n" +
+		"- /stock SYMBOL [1d|1w|1m] - Single-symbol 5m mini chart\n" +
+		"- /stocks S1 S2 ... [1d|1w|1m] - Multi-symbol 5m; auto-normalizes to % when >2\n" +
+		"- /stockx SYMBOL [1m|5m|15m|1h|1d] [1d|5d|1m|3m|6m|1y|2y|5y|10y|30y] - Single-symbol custom\n" +
+		"- /stocksx S1 S2 ... [interval] [window] - Multi-symbol custom; auto-normalizes to % when >2\n" +
+		"- /stocks-index S1 S2 ... [interval] [window] - Index to base 100 at start for relative performance\n" +
+		"\nLimits (Yahoo): 1m→30d, 5m→90d, 15m→180d, 1h→2y, 1d→30y. X-axis in Eastern Time."
+	h.reply(chatID, help)
 }
 
 func (h *Handlers) reply(chatID int64, text string) {

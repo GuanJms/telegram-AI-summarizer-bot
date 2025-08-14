@@ -21,6 +21,8 @@ go.work
 .env
 .env.local
 
+caddy/Caddyfile.production
+
 # Database files
 *.db
 *.sqlite
