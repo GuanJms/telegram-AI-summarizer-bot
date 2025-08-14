@@ -1,28 +1,33 @@
-version: '3'
+version: "3.9"
+
+networks:
+  web:
+    external: true
 
 services:
-  telegram-bot:
+  telegram-trader-bot:
     image: jamesguan777/telegram-trader-bot:latest
     user: "1001:1001"
+    networks: [web]
     deploy:
-      mode: replicated
-      replicas: 1
-    ports:
-      - "9095:9095"
+      replicas: 1                      # webhook bots: single replica
+      placement:
+        constraints: [node.hostname==node1]   # adjust to the node that has ./data
+      restart_policy:
+        condition: on-failure
+      update_config:
+        order: start-first
+        parallelism: 1
+        delay: 5s
+    # Expose only if you want host-level debug; Caddy will proxy via overlay anyway.
+    # ports:
+    #   - "9095:9095"
     env_file:
       - .env
     volumes:
       - ./data:/data
     healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:9095/healthz",
-        ]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9095/healthz >/dev/null || curl -fsS http://localhost:9095/healthz >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -32,10 +37,10 @@ services:
     image: alpine:3.19
     command: ["sh", "-c", "apk add --no-cache sqlite && tail -f /dev/null"]
     user: "0:0"
+    networks: [web]             # optional; only needed if you want to reach it across overlay
     deploy:
-      mode: replicated
       replicas: 1
+      placement:
+        constraints: [node.hostname==node1]
     volumes:
       - ./data:/data
-
-
