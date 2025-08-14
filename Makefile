@@ -13,6 +13,7 @@ BINARY_NAME=bot
 BUILD_DIR=bin
 DOCKER_IMAGE=jamesguan777/telegram-trader-bot
 DOCKER_TAG=latest
+
 # Target platform for Docker image builds (set to Docker Hub runtime target)
 DOCKER_PLATFORM=linux/amd64
 

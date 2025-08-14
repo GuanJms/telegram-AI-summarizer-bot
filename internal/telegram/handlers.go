@@ -20,6 +20,13 @@ var (
 	reStock = regexp.MustCompile(`^/stock(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+-]+)(?:\s+(1d|1w|1m))?$`)
 	// /stocks S1 S2 ... [1d|1w|1m]
 	reStocks = regexp.MustCompile(`^/stocks(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+\-\s]+?)(?:\s+(1d|1w|1m))?$`)
+	// /stocks-index S1 S2 ... [interval] [window]
+	// interval one of 1m|5m|15m|1h|1d, window e.g. 1d|5d|1m|3m|6m|1y|2y|5y|10y|30y
+	reStocksIndex = regexp.MustCompile(`^/stocks-index(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+\-\s]+?)(?:\s+(1m|5m|15m|1h|1d))?(?:\s+(1d|5d|1m|3m|6m|1y|2y|5y|10y|30y))?$`)
+	// /stockx SYMBOL [interval] [window]
+	reStockX = regexp.MustCompile(`^/stockx(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+-]+)(?:\s+(1m|5m|15m|1h|1d))?(?:\s+(1d|5d|1m|3m|6m|1y|2y|5y|10y|30y))?$`)
+	// /stocksx S1 S2 ... [interval] [window]
+	reStocksX = regexp.MustCompile(`^/stocksx(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+\-\s]+?)(?:\s+(1m|5m|15m|1h|1d))?(?:\s+(1d|5d|1m|3m|6m|1y|2y|5y|10y|30y))?$`)
 )
 
 type Handlers struct {
@@ -94,6 +101,104 @@ func (h *Handlers) HandleMessage(m *tgbotapi.Message) {
 			return
 		}
 		h.handleMultiStock(m.Chat.ID, syms, window)
+
+	case reStocksIndex.MatchString(txt):
+		g := reStocksIndex.FindStringSubmatch(txt)
+		symsField := strings.TrimSpace(g[1])
+		interval := "5m"
+		if len(g) >= 3 && g[2] != "" {
+			interval = g[2]
+		}
+		window := ""
+		if len(g) >= 4 {
+			window = g[3]
+		}
+		raw := strings.Fields(symsField)
+		seen := map[string]struct{}{}
+		syms := make([]string, 0, len(raw))
+		for _, s := range raw {
+			su := strings.ToUpper(strings.TrimSpace(s))
+			if su == "" {
+				continue
+			}
+			if _, ok := seen[su]; ok {
+				continue
+			}
+			seen[su] = struct{}{}
+			syms = append(syms, su)
+		}
+		if len(syms) < 2 {
+			h.reply(m.Chat.ID, "Please provide at least two symbols, e.g. /stocks-index SPY AAPL 1h 1y")
+			return
+		}
+		img, err := finance.MakeIndexedChart(syms, interval, window, true)
+		if err != nil {
+			h.reply(m.Chat.ID, "Indexed plot failed: "+err.Error())
+			return
+		}
+		name := strings.Join(syms, "_")
+		photo := tgbotapi.NewPhoto(m.Chat.ID, tgbotapi.FileBytes{Name: name + "_indexed.png", Bytes: img})
+		photo.Caption = "Indexed: " + strings.Join(syms, ", ") + " • " + strings.ToUpper(interval) + " • " + strings.ToUpper(window)
+		h.api.Send(photo)
+
+	case reStockX.MatchString(txt):
+		g := reStockX.FindStringSubmatch(txt)
+		sym := g[1]
+		interval := "5m"
+		if len(g) >= 3 && g[2] != "" {
+			interval = g[2]
+		}
+		window := ""
+		if len(g) >= 4 {
+			window = g[3]
+		}
+		img, err := finance.MakeChart(sym, interval, window)
+		if err != nil {
+			h.reply(m.Chat.ID, "Chart failed: "+err.Error())
+			return
+		}
+		photo := tgbotapi.NewPhoto(m.Chat.ID, tgbotapi.FileBytes{Name: sym + "_" + interval + "_" + window + ".png", Bytes: img})
+		photo.Caption = strings.ToUpper(sym) + " • " + strings.ToUpper(interval) + " • " + strings.ToUpper(window)
+		h.api.Send(photo)
+
+	case reStocksX.MatchString(txt):
+		g := reStocksX.FindStringSubmatch(txt)
+		symsField := strings.TrimSpace(g[1])
+		interval := "5m"
+		if len(g) >= 3 && g[2] != "" {
+			interval = g[2]
+		}
+		window := ""
+		if len(g) >= 4 {
+			window = g[3]
+		}
+		raw := strings.Fields(symsField)
+		seen := map[string]struct{}{}
+		syms := make([]string, 0, len(raw))
+		for _, s := range raw {
+			su := strings.ToUpper(strings.TrimSpace(s))
+			if su == "" {
+				continue
+			}
+			if _, ok := seen[su]; ok {
+				continue
+			}
+			seen[su] = struct{}{}
+			syms = append(syms, su)
+		}
+		if len(syms) < 2 {
+			h.reply(m.Chat.ID, "Please provide at least two symbols, e.g. /stocksx SPY AAPL 1h 1y")
+			return
+		}
+		img, err := finance.MakeMultiChart(syms, interval, window)
+		if err != nil {
+			h.reply(m.Chat.ID, "Multi chart failed: "+err.Error())
+			return
+		}
+		name := strings.Join(syms, "_")
+		photo := tgbotapi.NewPhoto(m.Chat.ID, tgbotapi.FileBytes{Name: name + "_" + interval + "_" + window + ".png", Bytes: img})
+		photo.Caption = "Multi: " + strings.Join(syms, ", ") + " • " + strings.ToUpper(interval) + " • " + strings.ToUpper(window)
+		h.api.Send(photo)
 	}
 }
 

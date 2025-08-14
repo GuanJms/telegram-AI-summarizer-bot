@@ -14,7 +14,11 @@ A Go-based Telegram bot that provides AI-powered text summarization and Yahoo Fi
 ## Commands
 
 - `/summary [hours]` - Summarize chat messages from the last N hours (default: 1 hour, max: 48 hours)
-- `/stock SYMBOL` - Get a 5-minute chart for the specified stock symbol (e.g., `/stock AAPL`)
+- `/stock SYMBOL [1d|1w|1m]` - Single-symbol 5m mini chart for 1d/1w/1m
+- `/stocks S1 S2 ... [1d|1w|1m]` - Multi-symbol 5m chart; auto-normalizes to % when >2 symbols
+- `/stockx SYMBOL [1m|5m|15m|1h|1d] [1d|5d|1m|3m|6m|1y|2y|5y|10y|30y]` - Single-symbol custom interval/lookback
+- `/stocksx S1 S2 ... [interval] [window]` - Multi-symbol custom; auto-normalizes to % when >2 symbols
+- `/stocks-index S1 S2 ... [interval] [window]` - Index each series to base 100 at start for relative performance
 
 ## Quick Start
 
@@ -274,7 +278,50 @@ Send `/summary` to get a summary of the last hour of messages, or `/summary 6` f
 
 ### Getting Stock Charts
 
-Send `/stock AAPL` to get a 5-minute chart for Apple stock.
+- Intraday 5m mini chart (default 1d):
+  - `/stock AAPL`
+  - `/stock AAPL 1w`
+- Multi-symbol mini chart:
+  - `/stocks SPY AAPL 1d`
+  - `/stocks SPY AAPL NVDA 1w` (normalized to % since >2)
+- Custom interval and lookback:
+  - `/stockx SPY 1h 1y`
+  - `/stocksx SPY AAPL 5m 5d`
+- Indexed comparison (base 100 at start):
+  - `/stocks-index SPY AAPL QQQ 15m 3m`
+
+### Interval and Lookback Limits (Yahoo Finance)
+
+Due to Yahoo API constraints, the maximum lookback depends on the interval. The bot automatically clamps requests to safe ranges:
+
+| Interval | Max Lookback |
+| -------: | ------------ |
+|       1m | 30 days      |
+|       5m | 90 days      |
+|      15m | 180 days     |
+|       1h | 2 years      |
+|       1d | 30 years     |
+
+Windows map to Yahoo `range` values: `1d`, `5d`, `1mo`, `3mo`, `6mo`, `1y`, `2y`, `5y`, `10y`, `30y`.
+
+### Notes on Scaling and Legends
+
+- When >2 series, charts normalize to percentage change to aid comparison. For exactly 2, raw prices are shown with dual y-axes.
+- Indexed charts set all series to 100 at the first bar (or 1.0 internally) and show relative performance.
+- X-axis labels show local time. For long windows, labels use date+hour; the library auto-thins labels for readability.
+
+### Time Zone
+
+- All chart timestamps are rendered in Eastern Time (America/New_York), including DST. If your container lacks tzdata, install it (e.g., `apk add tzdata` on Alpine).
+
+### Data Cleaning
+
+- The bot applies basic cleaning to Yahoo time series before plotting:
+  - Removes negative close values
+  - Drops outliers with an IQR rule (k = 1.5) when there are at least 20 points, preserving alignment
+  - Falls back to original data if the series is too short or if removing outliers would drop too many points
+
+This makes the charts more robust to transient bad ticks and data glitches.
 
 ## Development
 
