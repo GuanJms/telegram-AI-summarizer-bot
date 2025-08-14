@@ -162,8 +162,68 @@ docker stack deploy -c docker-stack.yml tg
 ```
 
 - The Caddyfile routes:
-  - `<you-domain>/telegram/webhook` and `/healthz` → `http://tg_telegram-trader-bot:9095`
+  - `<your-domain>/telegram/webhook` and `/healthz` → `http://tg_telegram-trader-bot:9095`
   - Adjust the hostname and service name if you change your stack or project name.
+
+## Docker Swarm Deployment (Recommended for Production)
+
+Deploy this bot as a Swarm stack named `tg`. A typical workflow that works well:
+
+1. Build your image locally and push to Docker Hub (replace `YOUR_DH_USER` with your own):
+
+```bash
+# Build multi-stage image from this repo
+docker build -t YOUR_DH_USER/telegram-tradercoder-bot:latest .
+
+# Or use the Makefile
+# make docker-build  # then retag if needed
+
+# Login and push
+docker login
+docker push YOUR_DH_USER/telegram-tradercoder-bot:latest
+```
+
+2. Edit `docker-stack.yml` and set the image to your pushed image:
+
+```yaml
+services:
+  telegram-trader-bot:
+    image: YOUR_DH_USER/telegram-tradercoder-bot:latest
+    # ... rest unchanged
+```
+
+3. Initialize Swarm (once per host) and deploy the stack with name `tg`:
+
+```bash
+docker swarm init        # skip if already initialized
+docker stack deploy -c docker-stack.yml tg
+```
+
+4. Prepare data directory ownership (important):
+
+The container runs as user `1001:1001`. Ensure the host-mounted `./data` directory is writable by that UID/GID:
+
+```bash
+mkdir -p ./data
+sudo chown -R 1001:1001 ./data
+```
+
+If you change the container user, adjust the ownership accordingly.
+
+4. Verify services are up and view logs:
+
+```bash
+docker service ls
+docker service ps tg_telegram-trader-bot
+docker service logs -f tg_telegram-trader-bot
+```
+
+5. Point your reverse proxy (e.g., Caddy from `caddy/Caddyfile.production`) at the Swarm service name `tg_telegram-trader-bot:9095` and your chosen domain.
+
+Notes:
+
+- Remember to provide environment variables (`TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY`, `WEBHOOK_PUBLIC_URL`) in `docker-stack.yml` and keep secrets safe.
+- The stack name `tg` ensures service names match the sample Caddyfile (e.g., `tg_telegram-trader-bot`).
 
 ### Custom Docker Image
 
