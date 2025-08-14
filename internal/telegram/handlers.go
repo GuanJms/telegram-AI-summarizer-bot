@@ -16,7 +16,10 @@ import (
 
 var (
 	reSummary = regexp.MustCompile(`^/summary(?:@[\w_]+)?(?:\s+|/)?(\d+)?$`)
-	reStock   = regexp.MustCompile(`^/stock(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+-]+)$`)
+	// /stock SYMBOL [1d|1w|1m]
+	reStock = regexp.MustCompile(`^/stock(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+-]+)(?:\s+(1d|1w|1m))?$`)
+	// /stocks S1 S2 ... [1d|1w|1m]
+	reStocks = regexp.MustCompile(`^/stocks(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+\-\s]+?)(?:\s+(1d|1w|1m))?$`)
 )
 
 type Handlers struct {
@@ -56,8 +59,41 @@ func (h *Handlers) HandleMessage(m *tgbotapi.Message) {
 		h.handleSummary(m.Chat.ID, hours)
 
 	case reStock.MatchString(txt):
-		sym := reStock.FindStringSubmatch(txt)[1]
-		h.handleStock(m.Chat.ID, sym)
+		g := reStock.FindStringSubmatch(txt)
+		sym := g[1]
+		window := ""
+		if len(g) >= 3 {
+			window = g[2]
+		}
+		h.handleStock(m.Chat.ID, sym, window)
+
+	case reStocks.MatchString(txt):
+		g := reStocks.FindStringSubmatch(txt)
+		symsField := strings.TrimSpace(g[1])
+		window := ""
+		if len(g) >= 3 {
+			window = g[2]
+		}
+		// Split on whitespace, normalize and dedupe
+		raw := strings.Fields(symsField)
+		seen := map[string]struct{}{}
+		syms := make([]string, 0, len(raw))
+		for _, s := range raw {
+			su := strings.ToUpper(strings.TrimSpace(s))
+			if su == "" {
+				continue
+			}
+			if _, ok := seen[su]; ok {
+				continue
+			}
+			seen[su] = struct{}{}
+			syms = append(syms, su)
+		}
+		if len(syms) < 2 {
+			h.reply(m.Chat.ID, "Please provide at least two symbols, e.g. /stocks SPY AAPL 1w")
+			return
+		}
+		h.handleMultiStock(m.Chat.ID, syms, window)
 	}
 }
 
@@ -84,14 +120,34 @@ func (h *Handlers) handleSummary(chatID int64, hours int) {
 	h.api.Send(msg)
 }
 
-func (h *Handlers) handleStock(chatID int64, sym string) {
-	img, err := finance.Make5mChart(sym)
+func (h *Handlers) handleStock(chatID int64, sym string, window string) {
+	img, err := finance.Make5mChart(sym, window)
 	if err != nil {
 		h.reply(chatID, fmt.Sprintf("Couldn’t fetch %s: %v", sym, err))
 		return
 	}
 	photo := tgbotapi.NewPhoto(chatID, tgbotapi.FileBytes{Name: sym + ".png", Bytes: img})
-	photo.Caption = strings.ToUpper(sym) + " • 5-minute mini chart"
+	w := strings.ToLower(strings.TrimSpace(window))
+	if w == "" {
+		w = "1d"
+	}
+	photo.Caption = strings.ToUpper(sym) + " • 5m • " + strings.ToUpper(w)
+	h.api.Send(photo)
+}
+
+func (h *Handlers) handleMultiStock(chatID int64, syms []string, window string) {
+	img, err := finance.MakeMulti5mChart(syms, window)
+	if err != nil {
+		h.reply(chatID, fmt.Sprintf("Couldn’t fetch multi: %v", err))
+		return
+	}
+	name := strings.Join(syms, "_")
+	photo := tgbotapi.NewPhoto(chatID, tgbotapi.FileBytes{Name: name + ".png", Bytes: img})
+	w := strings.ToLower(strings.TrimSpace(window))
+	if w == "" {
+		w = "1d"
+	}
+	photo.Caption = "Multi: " + strings.Join(syms, ", ") + " • 5m • " + strings.ToUpper(w)
 	h.api.Send(photo)
 }
 
