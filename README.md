@@ -34,59 +34,17 @@ A Go-based Telegram bot that provides AI-powered text summarization, trading rec
 1. **Clone the repository:**
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/GuanJms/telegram-AI-summarizer-bot.git
 cd telegram-tradercoder-bot
 ```
 
 2. **Set environment variables:**
 
-```bash
-export TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-export WEBHOOK_PUBLIC_URL=https://your-domain.com/telegram/webhook
-export OPENAI_API_KEY=your_openai_api_key
-```
+Please copy .env.example and change it to .env
 
-3. **Run with Docker Compose:**
+3. \*\*Use Docker build image
 
-```bash
-# Development
-docker-compose up --build
-
-# Production (with nginx)
-docker-compose --profile production up --build
-```
-
-### Using Makefile
-
-1. **Install dependencies:**
-
-```bash
-make deps
-```
-
-2. **Build the application:**
-
-```bash
-make build
-```
-
-3. **Run in development mode:**
-
-```bash
-make dev
-```
-
-4. **Build for all platforms:**
-
-```bash
-make build-all
-```
-
-5. **Check environment variables:**
-
-```bash
-make check-env
-```
+Please remember to change docker-stack.yml file or feel free to use my image.
 
 ### Manual Setup
 
@@ -105,53 +63,6 @@ Create a `.env` file or set these environment variables:
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 WEBHOOK_PUBLIC_URL=https://your-domain.com/telegram/webhook
 OPENAI_API_KEY=your_openai_api_key
-PORT=9095  # Optional, defaults to 9095
-```
-
-#### Installation
-
-1. **Clone the repository:**
-
-```bash
-git clone <repository-url>
-cd telegram-tradercoder-bot
-```
-
-2. **Install dependencies:**
-
-```bash
-go mod tidy
-```
-
-3. **Build the application:**
-
-```bash
-go build ./cmd/bot
-```
-
-4. **Run the bot:**
-
-```bash
-./bot
-```
-
-## Docker Deployment
-
-### Development
-
-```bash
-# Build and run
-docker-compose up --build
-
-# Run in background
-docker-compose up -d --build
-```
-
-### Production
-
-```bash
-# With nginx reverse proxy and SSL
-docker-compose --profile production up -d --build
 ```
 
 ### Caddy (Production) with Docker Stack
@@ -233,6 +144,8 @@ Notes:
 - The stack name `tg` ensures service names match the sample Caddyfile (e.g., `tg_telegram-trader-bot`).
 
 ### Custom Docker Image
+
+Please remember to change make file with your username
 
 ```bash
 # Build image (uses linux/amd64 by default)
@@ -342,32 +255,6 @@ CREATE TABLE command_usage (
 - `github.com/mattn/go-sqlite3` - SQLite driver
 
 ## Production Deployment
-
-### With Docker Compose
-
-```bash
-# Set up SSL certificates
-mkdir ssl
-# Copy your SSL certificates to ssl/cert.pem and ssl/key.pem
-
-# Deploy with nginx
-docker-compose --profile production up -d --build
-```
-
-### With Kubernetes
-
-```bash
-# Apply Kubernetes manifests
-kubectl apply -f k8s/
-```
-
-### Manual Server Deployment
-
-1. Set up a VPS with Ubuntu/Debian
-2. Install Docker and Docker Compose
-3. Clone the repository
-4. Set environment variables
-5. Run `docker-compose --profile production up -d --build`
 
 ## Usage Examples
 
@@ -571,53 +458,8 @@ The `/port` command creates a custom weighted portfolio with optional cash alloc
 
 This makes the charts more robust to transient bad ticks and data glitches, and enables seamless mixing of crypto and traditional assets.
 
-## Development
-
-### Local Development
-
-```bash
-make dev
-```
-
-### Testing
-
-```bash
-make test
-make test-coverage
-```
-
-### Code Quality
-
-```bash
-make fmt
-make lint
-```
-
-### Building for Different Platforms
-
-```bash
-make build-all
-# Creates binaries for Linux, macOS, and Windows
-```
-
-## Troubleshooting
-
 ### Common Issues
 
 1. **Webhook URL must be HTTPS**: Use ngrok for development or set up SSL for production
 2. **Database permissions**: Ensure the bot has write permissions to the data directory
 3. **Environment variables**: Use `make check-env` to verify all required variables are set
-
-### Logs
-
-```bash
-# Docker logs
-docker-compose logs -f telegram-bot
-
-# Application logs
-./bot 2>&1 | tee bot.log
-```
-
-## License
-
-This project is licensed under the MIT License.
