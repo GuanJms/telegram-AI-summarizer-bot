@@ -1,11 +1,13 @@
 # Telegram Trader Coder Bot
 
-A Go-based Telegram bot that provides AI-powered text summarization and Yahoo Finance stock charts.
+A Go-based Telegram bot that provides AI-powered text summarization, trading recommendations, and Yahoo Finance stock charts.
 
 ## Features
 
-- **AI Text Summarization**: Uses OpenAI GPT-4o-mini to summarize chat messages
-- **Stock Charts**: Generates 5-minute stock charts using Yahoo Finance data
+- **AI Text Summarization**: Uses OpenAI GPT-4 to summarize chat messages
+- **AI Trading Recommendations**: Get structured trading advice based on market views and investment thesis
+- **Stock Charts**: Generates comprehensive stock charts using Yahoo Finance data
+- **Portfolio Analysis**: Equal-weighted and custom-weighted portfolio backtesting
 - **SQLite Storage**: Stores chat messages for summarization
 - **Webhook Support**: Handles Telegram webhooks for real-time message processing
 - **Docker Support**: Containerized deployment with Docker and Docker Compose
@@ -14,6 +16,7 @@ A Go-based Telegram bot that provides AI-powered text summarization and Yahoo Fi
 ## Commands
 
 - `/summary [hours]` - Summarize chat messages from the last N hours (default: 1 hour, max: 48 hours)
+- `/recommend TEXT` - Get AI-powered trading recommendations based on your market view or investment thesis
 - `/stock SYMBOL [1d|1w|1m]` - Single-symbol 5m mini chart for 1d/1w/1m
 - `/stocks S1 S2 ... [1d|1w|1m]` - Multi-symbol 5m chart; auto-normalizes to % when >2 symbols
 - `/stockx SYMBOL [1m|5m|15m|1h|1d] [1d|5d|1m|3m|6m|1y|2y|5y|10y|30y]` - Single-symbol custom interval/lookback
@@ -281,7 +284,8 @@ internal/
 ├── finance/
 │   └── yahoo.go         # Yahoo Finance chart generation
 ├── openai/
-│   └── summarizer.go    # OpenAI API integration
+│   ├── summarizer.go    # OpenAI API integration for chat summarization
+│   └── recommender.go   # OpenAI API integration for trading recommendations
 ├── server/
 │   └── http.go          # HTTP server setup
 ├── storage/
@@ -355,6 +359,47 @@ kubectl apply -f k8s/
 ### Summarizing Chat Messages
 
 Send `/summary` to get a summary of the last hour of messages, or `/summary 6` for the last 6 hours.
+
+### Getting Trading Recommendations
+
+Use the `/recommend` command with your market view or investment thesis to get structured trading advice:
+
+- `/recommend interest rates going higher`
+- `/recommend tech bubble about to burst`
+- `/recommend inflation coming back`
+- `/recommend energy sector rotation`
+- `/recommend crypto winter ending`
+
+The AI will analyze your input and provide:
+
+- **Interpretation**: What your bet means in market terms
+- **Ticker Recommendations**: Specific ETFs, indices, or instruments to go long/short
+- **Rationale**: Why each ticker maps to your thesis and how it gains/loses
+- **Risks**: Scenarios where the trade would lose money
+
+Example response format:
+
+```
+**Interpretation:**
+Higher interest rates = bond prices fall.
+Equities with high duration (tech/growth) may suffer.
+Financials may benefit from higher net interest margins.
+
+**Ticker Recommendations:**
+• Short BND – Vanguard Total Bond Market ETF
+• Short TLT – iShares 20+ Year Treasury Bond ETF
+• Long XLF – Financial sector ETF
+• Long DXY (or UUP ETF) – U.S. dollar
+
+**Rationale:**
+• BND/TLT: Track Treasuries. Rates ↑ → bond prices ↓
+• XLF: Rising rates boost bank lending margins
+• DXY/UUP: Higher U.S. yields attract capital flows → stronger USD
+
+**Risks:**
+• If higher rates trigger recession → stocks fall
+• If inflation collapses or Fed pivots → bonds rally
+```
 
 ### Getting Stock Charts
 

@@ -33,12 +33,15 @@ var (
 	reEWPort = regexp.MustCompile(`^/ew-port(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+\-\s]+?)(?:\s+(\d+[dwmy]))?$`)
 	// /port S1 X1 S2 X2 ... Y - Weighted portfolio backtest
 	rePort = regexp.MustCompile(`^/port(?:@[\w_]+)?\s+(.+)$`)
+	// /recommend TEXT - Trading recommendation based on user input
+	reRecommend = regexp.MustCompile(`^/recommend(?:@[\w_]+)?\s+(.+)$`)
 )
 
 type Handlers struct {
 	api       *tgbotapi.BotAPI
 	store     *storage.Store
 	summarize *openai.Summarizer
+	recommend *openai.Recommender
 }
 
 func NewHandlers(api *tgbotapi.BotAPI, store *storage.Store, openAIKey string) *Handlers {
@@ -46,6 +49,7 @@ func NewHandlers(api *tgbotapi.BotAPI, store *storage.Store, openAIKey string) *
 		api:       api,
 		store:     store,
 		summarize: openai.NewSummarizer(openAIKey),
+		recommend: openai.NewRecommender(openAIKey),
 	}
 }
 
@@ -251,6 +255,16 @@ func (h *Handlers) HandleMessage(m *tgbotapi.Message) {
 			return
 		}
 		h.handleWeightedPortfolio(m.Chat.ID, symbols, weights, window)
+
+	case reRecommend.MatchString(txt):
+		g := reRecommend.FindStringSubmatch(txt)
+		userInput := strings.TrimSpace(g[1])
+		if userInput == "" {
+			h.reply(m.Chat.ID, "Please provide your investment thesis or market view after /recommend")
+			return
+		}
+		h.reply(m.Chat.ID, "🤖 Analyzing your request and generating trading recommendations...")
+		h.handleRecommendation(m.Chat.ID, userInput)
 	}
 }
 
@@ -370,6 +384,7 @@ func (h *Handlers) handleWeightedPortfolio(chatID int64, syms []string, weights 
 func (h *Handlers) handleHelp(chatID int64) {
 	help := "Commands\n\n" +
 		"- /summary [hours] - Summarize chat messages from the last N hours (default: 1, max: 48)\n" +
+		"- /recommend TEXT - Get AI-powered trading recommendations based on your market view or thesis\n" +
 		"- /stock SYMBOL [1d|1w|1m] - Single-symbol 5m mini chart\n" +
 		"- /stocks S1 S2 ... [1d|1w|1m] - Multi-symbol 5m; auto-normalizes to % when >2\n" +
 		"- /stockx SYMBOL [1m|5m|15m|1h|1d] [1d|5d|1m|3m|6m|1y|2y|5y|10y|30y] - Single-symbol custom\n" +
@@ -379,6 +394,21 @@ func (h *Handlers) handleHelp(chatID int64) {
 		"- /port S1 W1 S2 W2 ... [Xd|Xw|Xm|Xy] - Weighted portfolio (W>0=long, W<0=short, rest=cash/margin)\n" +
 		"\nLimits (Yahoo): 1m→30d, 5m→90d, 15m→180d, 1h→2y, 1d→30y. X-axis in Eastern Time."
 	h.reply(chatID, help)
+}
+
+func (h *Handlers) handleRecommendation(chatID int64, userInput string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+
+	recommendation, err := h.recommend.GetTradingRecommendation(ctx, userInput)
+	if err != nil {
+		h.reply(chatID, "Failed to generate recommendation: "+err.Error())
+		return
+	}
+
+	msg := tgbotapi.NewMessage(chatID, recommendation)
+	msg.ParseMode = "Markdown"
+	h.api.Send(msg)
 }
 
 func (h *Handlers) reply(chatID int64, text string) {
