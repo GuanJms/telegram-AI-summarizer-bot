@@ -19,6 +19,8 @@ A Go-based Telegram bot that provides AI-powered text summarization and Yahoo Fi
 - `/stockx SYMBOL [1m|5m|15m|1h|1d] [1d|5d|1m|3m|6m|1y|2y|5y|10y|30y]` - Single-symbol custom interval/lookback
 - `/stocksx S1 S2 ... [interval] [window]` - Multi-symbol custom; auto-normalizes to % when >2 symbols
 - `/stocks-index S1 S2 ... [interval] [window]` - Index each series to base 100 at start for relative performance
+- `/ew-port S1 S2 ... [Xd|Xw|Xm|Xy]` - Equal weighted portfolio backtest with performance metrics (starting $100)
+- `/port S1 W1 S2 W2 ... [Xd|Xw|Xm|Xy]` - Weighted portfolio backtest (W>0=long, W<0=short, remainder=cash/margin)
 
 ## Quick Start
 
@@ -367,6 +369,13 @@ Send `/summary` to get a summary of the last hour of messages, or `/summary 6` f
   - `/stocksx SPY AAPL 5m 5d`
 - Indexed comparison (base 100 at start):
   - `/stocks-index SPY AAPL QQQ 15m 3m`
+- Equal weighted portfolio backtest:
+  - `/ew-port SPY AAPL QQQ 1y`
+  - `/ew-port SPY AAPL NVDA MSFT 2y`
+- Weighted portfolio backtest:
+  - `/port SPY 0.6 AAPL 0.3 1y` (60% SPY, 30% AAPL, 10% cash)
+  - `/port SPY 0.5 QQQ 0.25 VTI 0.2 2y` (5% cash remainder)
+  - `/port ETH-USD 0.4 BTC-USD 0.3 SPY 0.2 1y` (Mixed crypto/stock portfolio)
 
 ### Interval and Lookback Limits (Yahoo Finance)
 
@@ -392,14 +401,68 @@ Windows map to Yahoo `range` values: `1d`, `5d`, `1mo`, `3mo`, `6mo`, `1y`, `2y`
 
 - All chart timestamps are rendered in Eastern Time (America/New_York), including DST. If your container lacks tzdata, install it (e.g., `apk add tzdata` on Alpine).
 
-### Data Cleaning
+### Portfolio Backtesting
+
+The `/ew-port` command creates an equal weighted portfolio and backtests its performance:
+
+- **Starting Value**: $100 (split equally among all assets)
+- **Rebalancing**: No rebalancing (buy-and-hold strategy)
+- **Data Frequency**: Daily prices only (1d interval)
+- **Performance Metrics**:
+  - Total Return (%)
+  - Annualized Return (%)
+  - Annualized Volatility (%)
+  - Sharpe Ratio (assuming 0% risk-free rate)
+  - Maximum Drawdown (%)
+
+**Window formats**: `1d`, `5d`, `1w`, `2w`, `3w`, `1m`, `3m`, `6m`, `1y`, `2y`, `5y`, `10y`, `30y`
+
+**Note**: For custom periods (e.g., `3w`), the bot fetches a larger Yahoo range and filters to the exact requested timeframe.
+
+**Example**: `/ew-port SPY AAPL QQQ VTI 2y` creates a 4-asset equal weighted portfolio with 2-year backtest.
+
+### Weighted Portfolio Backtesting
+
+The `/port` command creates a custom weighted portfolio with optional cash allocation:
+
+- **Starting Value**: $100 (allocated according to specified weights)
+- **Custom Weights**: Each asset gets a user-defined weight (0.0 to 1.0)
+- **Cash Handling**: Any remaining weight (1.0 - sum of weights) is allocated to cash
+- **Rebalancing**: No rebalancing (buy-and-hold strategy)
+- **Data Frequency**: Daily prices only (1d interval)
+- **Performance Metrics**: Same as equal weighted (Total Return, Sharpe Ratio, Volatility, Max Drawdown)
+
+**Format**: `/port SYMBOL1 WEIGHT1 SYMBOL2 WEIGHT2 ... WINDOW`
+
+**Weight Requirements**:
+
+- **Long positions**: Weights between 0.0 and 1.0 (e.g., 0.6 = 60% long)
+- **Short positions**: Negative weights between -1.0 and 0.0 (e.g., -0.3 = 30% short)
+- **Leverage limit**: Total gross exposure (long + |short|) cannot exceed 300%
+- **Cash/Margin**: Remaining weight is automatically allocated to cash or margin
+
+**Examples**:
+
+- `/port SPY 0.6 AAPL 0.3 1y` → 60% SPY long, 30% AAPL long, 10% cash
+- `/port SPY 0.5 AAPL -0.2 1y` → 50% SPY long, 20% AAPL short, 70% cash
+- `/port SPY 0.8 QQQ -0.3 VTI 0.4 1y` → 80% SPY long, 30% QQQ short, 40% VTI long, 10% margin
+- `/port TSLA -0.5 AAPL 0.3 1y` → 50% TSLA short, 30% AAPL long, 120% cash
+
+### Data Cleaning & Alignment
 
 - The bot applies basic cleaning to Yahoo time series before plotting:
+
   - Removes negative close values
   - Drops outliers with an IQR rule (k = 1.5) when there are at least 20 points, preserving alignment
   - Falls back to original data if the series is too short or if removing outliers would drop too many points
 
-This makes the charts more robust to transient bad ticks and data glitches.
+- **Mixed Asset Alignment**: When combining 24/7 assets (crypto) with market-hours assets (stocks):
+  - Uses forward-fill alignment to handle different trading schedules
+  - Base timeline uses the asset with the fewest data points (typically stocks)
+  - Crypto prices are forward-filled during stock market closures
+  - Prevents excessive data points while maintaining accuracy
+
+This makes the charts more robust to transient bad ticks and data glitches, and enables seamless mixing of crypto and traditional assets.
 
 ## Development
 

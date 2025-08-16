@@ -29,6 +29,10 @@ var (
 	reStockX = regexp.MustCompile(`^/stockx(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+-]+)(?:\s+(1m|5m|15m|1h|1d))?(?:\s+(1d|5d|1m|3m|6m|1y|2y|5y|10y|30y))?$`)
 	// /stocksx S1 S2 ... [interval] [window]
 	reStocksX = regexp.MustCompile(`^/stocksx(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+\-\s]+?)(?:\s+(1m|5m|15m|1h|1d))?(?:\s+(1d|5d|1m|3m|6m|1y|2y|5y|10y|30y))?$`)
+	// /ew-port S1 S2 ... [Xd|Xw|Xm|Xy] - Equal weighted portfolio backtest
+	reEWPort = regexp.MustCompile(`^/ew-port(?:@[\w_]+)?\s+([A-Za-z0-9\.^_=+\-\s]+?)(?:\s+(\d+[dwmy]))?$`)
+	// /port S1 X1 S2 X2 ... Y - Weighted portfolio backtest
+	rePort = regexp.MustCompile(`^/port(?:@[\w_]+)?\s+(.+)$`)
 )
 
 type Handlers struct {
@@ -205,6 +209,48 @@ func (h *Handlers) HandleMessage(m *tgbotapi.Message) {
 		photo := tgbotapi.NewPhoto(m.Chat.ID, tgbotapi.FileBytes{Name: name + "_" + interval + "_" + window + ".png", Bytes: img})
 		photo.Caption = "Multi: " + strings.Join(syms, ", ") + " • " + strings.ToUpper(interval) + " • " + strings.ToUpper(window)
 		h.api.Send(photo)
+
+	case reEWPort.MatchString(txt):
+		g := reEWPort.FindStringSubmatch(txt)
+		symsField := strings.TrimSpace(g[1])
+		window := "1y" // Default to 1 year
+		if len(g) >= 3 && g[2] != "" {
+			window = g[2]
+		}
+		raw := strings.Fields(symsField)
+		seen := map[string]struct{}{}
+		syms := make([]string, 0, len(raw))
+		for _, s := range raw {
+			su := strings.ToUpper(strings.TrimSpace(s))
+			if su == "" {
+				continue
+			}
+			if _, ok := seen[su]; ok {
+				continue
+			}
+			seen[su] = struct{}{}
+			syms = append(syms, su)
+		}
+		if len(syms) < 2 {
+			h.reply(m.Chat.ID, "Please provide at least two symbols, e.g. /ew-port SPY AAPL QQQ 2y")
+			return
+		}
+		h.handlePortfolio(m.Chat.ID, syms, window)
+
+	case rePort.MatchString(txt):
+		g := rePort.FindStringSubmatch(txt)
+		input := strings.TrimSpace(g[1])
+
+		symbols, weights, window, err := finance.ParseWeightedPortfolio(input)
+		if err != nil {
+			h.reply(m.Chat.ID, fmt.Sprintf("Invalid portfolio format: %v\n\nUsage: /port SPY 0.5 AAPL 0.25 1y", err))
+			return
+		}
+		if len(symbols) == 0 {
+			h.reply(m.Chat.ID, "Please provide at least one symbol with weight, e.g. /port SPY 0.6 AAPL 0.3 1y")
+			return
+		}
+		h.handleWeightedPortfolio(m.Chat.ID, symbols, weights, window)
 	}
 }
 
@@ -262,6 +308,65 @@ func (h *Handlers) handleMultiStock(chatID int64, syms []string, window string) 
 	h.api.Send(photo)
 }
 
+func (h *Handlers) handlePortfolio(chatID int64, syms []string, window string) {
+	img, err := finance.MakePortfolioChart(syms, window)
+	if err != nil {
+		h.reply(chatID, fmt.Sprintf("Portfolio failed: %v", err))
+		return
+	}
+	name := strings.Join(syms, "_")
+	photo := tgbotapi.NewPhoto(chatID, tgbotapi.FileBytes{Name: name + "_portfolio_" + window + ".png", Bytes: img})
+	photo.Caption = "Equal Weighted Portfolio: " + strings.Join(syms, ", ") + " • " + strings.ToUpper(window)
+	h.api.Send(photo)
+}
+
+func (h *Handlers) handleWeightedPortfolio(chatID int64, syms []string, weights []float64, window string) {
+	img, err := finance.MakeWeightedPortfolioChart(syms, weights, window)
+	if err != nil {
+		h.reply(chatID, fmt.Sprintf("Weighted portfolio failed: %v", err))
+		return
+	}
+
+	// Create descriptive filename and caption
+	var weightStrs []string
+	for i, symbol := range syms {
+		weightStrs = append(weightStrs, fmt.Sprintf("%s%.1f", symbol, weights[i]*100))
+	}
+
+	name := strings.Join(weightStrs, "_")
+	photo := tgbotapi.NewPhoto(chatID, tgbotapi.FileBytes{Name: name + "_wport_" + window + ".png", Bytes: img})
+
+	// Calculate total weight and cash
+	totalWeight := 0.0
+	for _, w := range weights {
+		totalWeight += w
+	}
+	cashPct := (1.0 - totalWeight) * 100
+
+	var caption strings.Builder
+	caption.WriteString("Weighted Portfolio: ")
+	for i, symbol := range syms {
+		if i > 0 {
+			caption.WriteString(", ")
+		}
+		weight := weights[i]
+		if weight >= 0 {
+			caption.WriteString(fmt.Sprintf("%s %.1f%%", symbol, weight*100))
+		} else {
+			caption.WriteString(fmt.Sprintf("%s %.1f%% SHORT", symbol, -weight*100))
+		}
+	}
+	if cashPct > 0 {
+		caption.WriteString(fmt.Sprintf(", Cash %.1f%%", cashPct))
+	} else if cashPct < 0 {
+		caption.WriteString(fmt.Sprintf(", Margin %.1f%%", -cashPct))
+	}
+	caption.WriteString(" • " + strings.ToUpper(window))
+
+	photo.Caption = caption.String()
+	h.api.Send(photo)
+}
+
 func (h *Handlers) handleHelp(chatID int64) {
 	help := "Commands\n\n" +
 		"- /summary [hours] - Summarize chat messages from the last N hours (default: 1, max: 48)\n" +
@@ -270,6 +375,8 @@ func (h *Handlers) handleHelp(chatID int64) {
 		"- /stockx SYMBOL [1m|5m|15m|1h|1d] [1d|5d|1m|3m|6m|1y|2y|5y|10y|30y] - Single-symbol custom\n" +
 		"- /stocksx S1 S2 ... [interval] [window] - Multi-symbol custom; auto-normalizes to % when >2\n" +
 		"- /stocks-index S1 S2 ... [interval] [window] - Index to base 100 at start for relative performance\n" +
+		"- /ew-port S1 S2 ... [Xd|Xw|Xm|Xy] - Equal weighted portfolio backtest (starting $100)\n" +
+		"- /port S1 W1 S2 W2 ... [Xd|Xw|Xm|Xy] - Weighted portfolio (W>0=long, W<0=short, rest=cash/margin)\n" +
 		"\nLimits (Yahoo): 1m→30d, 5m→90d, 15m→180d, 1h→2y, 1d→30y. X-axis in Eastern Time."
 	h.reply(chatID, help)
 }
