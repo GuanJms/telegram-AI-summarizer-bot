@@ -16,6 +16,14 @@ func main() {
 
 	// Ensure parent directory for the DB exists
 	_ = os.MkdirAll(filepath.Dir(cfg.DBPath), 0o755)
+
+	// Debug: Check if database file exists before opening
+	if _, err := os.Stat(cfg.DBPath); os.IsNotExist(err) {
+		log.Printf("db: creating new database file at %s", cfg.DBPath)
+	} else {
+		log.Printf("db: using existing database file at %s", cfg.DBPath)
+	}
+
 	db, err := storage.OpenSQLite("file:" + cfg.DBPath + "?_fk=1")
 	if err != nil {
 		log.Fatal(err)
@@ -25,7 +33,17 @@ func main() {
 	if err := storage.InitSchema(db); err != nil {
 		log.Fatal(err)
 	}
-	log.Println("db: schema ensured (messages table)")
+	log.Println("db: schema ensured (messages and command_usage tables)")
+
+	// Debug: Check existing data count
+	store := storage.NewStore(db)
+	if stats, err := store.FetchUsageStats(0); err == nil {
+		totalCommands := 0
+		for _, stat := range stats {
+			totalCommands += stat.Count
+		}
+		log.Printf("db: found %d existing command usage records", totalCommands)
+	}
 
 	tg, err := telegram.NewBot(cfg.TelegramToken, cfg.WebhookPublicURL, db, cfg.OpenAIKey)
 	if err != nil {

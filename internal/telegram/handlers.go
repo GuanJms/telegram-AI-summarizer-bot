@@ -457,8 +457,8 @@ func (h *Handlers) handleUsage(chatID int64, days int) {
 		since = time.Now().AddDate(0, 0, -days).Unix()
 	}
 
-	// Fetch usage statistics
-	stats, err := h.store.FetchUsageStats(chatID, since)
+	// Fetch global usage statistics (across all chats)
+	stats, err := h.store.FetchUsageStats(since)
 	if err != nil {
 		h.reply(chatID, "Failed to fetch usage statistics: "+err.Error())
 		return
@@ -488,13 +488,17 @@ func (h *Handlers) handleUsage(chatID int64, days int) {
 			Name:  "usage_distribution.png",
 			Bytes: pieChart,
 		})
-		photo.Caption = fmt.Sprintf("Command Usage Distribution (%d days)", days)
+		if days > 0 {
+			photo.Caption = fmt.Sprintf("Global Command Usage Distribution (%d days)", days)
+		} else {
+			photo.Caption = "Global Command Usage Distribution (All Time)"
+		}
 		h.api.Send(photo)
 	}
 
 	// Generate and send time series chart if we have time range
 	if days > 0 {
-		series, err := h.store.FetchUsageTimeSeries(chatID, since, calculateInterval(days))
+		series, err := h.store.FetchUsageTimeSeries(since, calculateInterval(days))
 		if err == nil && len(series) > 0 {
 			timeChart, err := h.analytics.MakeUsageTimeSeriesChart(series, days)
 			if err == nil {
@@ -502,7 +506,7 @@ func (h *Handlers) handleUsage(chatID int64, days int) {
 					Name:  "usage_timeseries.png",
 					Bytes: timeChart,
 				})
-				photo.Caption = fmt.Sprintf("Command Usage Over Time (%d days)", days)
+				photo.Caption = fmt.Sprintf("Global Command Usage Over Time (%d days)", days)
 				h.api.Send(photo)
 			}
 		}

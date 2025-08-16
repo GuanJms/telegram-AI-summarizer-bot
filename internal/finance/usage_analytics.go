@@ -51,7 +51,12 @@ func (ua *UsageAnalytics) MakeUsageChart(stats map[string]*storage.UsageStats, d
 
 	p, err := charts.PieRender(
 		values,
-		charts.TitleTextOptionFunc(fmt.Sprintf("Command Usage Distribution (%d days)", days)),
+		charts.TitleTextOptionFunc(func() string {
+			if days > 0 {
+				return fmt.Sprintf("Global Command Usage Distribution (%d days)", days)
+			}
+			return "Global Command Usage Distribution (All Time)"
+		}()),
 		charts.LegendOptionFunc(charts.LegendOption{
 			Data: pieLabels,
 			Top:  charts.PositionTop,
@@ -148,7 +153,7 @@ func (ua *UsageAnalytics) MakeUsageTimeSeriesChart(series map[string][]storage.T
 		charts.XAxisOptionFunc(charts.XAxisOption{
 			Data: xAxisData,
 		}),
-		charts.TitleTextOptionFunc(fmt.Sprintf("Command Usage Over Time (%d days)", days)),
+		charts.TitleTextOptionFunc(fmt.Sprintf("Global Command Usage Over Time (%d days)", days)),
 		charts.LegendOptionFunc(charts.LegendOption{
 			Data: seriesNames,
 			Top:  charts.PositionTop,
@@ -184,7 +189,14 @@ func (ua *UsageAnalytics) FormatUsageStatsText(stats map[string]*storage.UsageSt
 	}
 	sort.Strings(sortedCategories)
 
-	text := fmt.Sprintf("📊 **Usage Analytics** (%d days)\n\n", days)
+	var periodText string
+	if days > 0 {
+		periodText = fmt.Sprintf("%d days", days)
+	} else {
+		periodText = "All Time"
+	}
+
+	text := fmt.Sprintf("📊 **Global Usage Analytics** (%s)\n\n", periodText)
 	text += fmt.Sprintf("**Total Commands**: %d\n\n", totalCommands)
 
 	for _, category := range sortedCategories {

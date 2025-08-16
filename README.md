@@ -6,7 +6,7 @@ A Go-based Telegram bot that provides AI-powered text summarization, trading rec
 
 - **AI Text Summarization**: Uses OpenAI GPT-4 to summarize chat messages
 - **AI Trading Recommendations**: Get structured trading advice based on market views and investment thesis
-- **Usage Analytics**: Track and visualize command usage with time-series charts and category breakdowns
+- **Usage Analytics**: Track and visualize global command usage with time-series charts and category breakdowns
 - **Stock Charts**: Generates comprehensive stock charts using Yahoo Finance data
 - **Portfolio Analysis**: Equal-weighted and custom-weighted portfolio backtesting
 - **SQLite Storage**: Stores chat messages for summarization
@@ -418,17 +418,19 @@ Financials may benefit from higher net interest margins.
 
 ### Viewing Usage Analytics
 
-Track your bot usage patterns with comprehensive analytics:
+Track global bot usage patterns with comprehensive analytics across all chats:
 
-- `/usage` - View all-time usage statistics with category breakdown
-- `/usage 7d` - View usage for the last 7 days with time-series charts
-- `/usage 30d` - View usage for the last 30 days
+- `/usage` - View all-time global usage statistics with category breakdown
+- `/usage 7d` - View global usage for the last 7 days with time-series charts
+- `/usage 30d` - View global usage for the last 30 days
 
 The analytics provide:
 
 - **Text Summary**: Detailed breakdown by category (AI Recommendations, Chat Summaries, Portfolio Analysis, Stock Charts)
 - **Distribution Chart**: Pie chart showing command usage percentages by category
 - **Time Series Chart**: Line chart showing usage trends over time (for time-limited queries)
+
+**Note**: Usage analytics are **global** across all chats where the bot is deployed, providing insights into overall bot utilization patterns.
 
 Categories are automatically organized:
 
@@ -440,7 +442,7 @@ Categories are automatically organized:
 Example output:
 
 ```
-📊 Usage Analytics (7 days)
+📊 Global Usage Analytics (7 days)
 
 Total Commands: 42
 

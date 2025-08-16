@@ -89,15 +89,26 @@ type UsageStats struct {
 	Commands map[string]int // command -> count
 }
 
-// FetchUsageStats retrieves usage statistics for the given time period
-func (s *Store) FetchUsageStats(chatID int64, since int64) (map[string]*UsageStats, error) {
-	rows, err := s.db.Query(`
-		SELECT category, command, COUNT(*) as count 
-		FROM command_usage 
-		WHERE chat_id=? AND ts>=? 
-		GROUP BY category, command 
-		ORDER BY category, count DESC`,
-		chatID, since)
+// FetchUsageStats retrieves usage statistics for the given time period across all chats
+func (s *Store) FetchUsageStats(since int64) (map[string]*UsageStats, error) {
+	var rows *sql.Rows
+	var err error
+
+	if since > 0 {
+		rows, err = s.db.Query(`
+			SELECT category, command, COUNT(*) as count 
+			FROM command_usage 
+			WHERE ts>=? 
+			GROUP BY category, command 
+			ORDER BY category, count DESC`,
+			since)
+	} else {
+		rows, err = s.db.Query(`
+			SELECT category, command, COUNT(*) as count 
+			FROM command_usage 
+			GROUP BY category, command 
+			ORDER BY category, count DESC`)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +140,8 @@ type TimeSeriesPoint struct {
 	Count     int
 }
 
-// FetchUsageTimeSeries retrieves time series data for usage analytics
-func (s *Store) FetchUsageTimeSeries(chatID int64, since int64, intervalHours int) (map[string][]TimeSeriesPoint, error) {
+// FetchUsageTimeSeries retrieves time series data for usage analytics across all chats
+func (s *Store) FetchUsageTimeSeries(since int64, intervalHours int) (map[string][]TimeSeriesPoint, error) {
 	// Group by time intervals (default 1 hour)
 	if intervalHours <= 0 {
 		intervalHours = 1
@@ -142,10 +153,10 @@ func (s *Store) FetchUsageTimeSeries(chatID int64, since int64, intervalHours in
 			(ts / (? * 3600)) * (? * 3600) as time_bucket,
 			COUNT(*) as count
 		FROM command_usage 
-		WHERE chat_id=? AND ts>=? 
+		WHERE ts>=? 
 		GROUP BY category, time_bucket 
 		ORDER BY category, time_bucket`,
-		intervalHours, intervalHours, chatID, since)
+		intervalHours, intervalHours, since)
 	if err != nil {
 		return nil, err
 	}
