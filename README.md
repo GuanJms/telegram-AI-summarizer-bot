@@ -6,6 +6,7 @@ A Go-based Telegram bot that provides AI-powered text summarization, trading rec
 
 - **AI Text Summarization**: Uses OpenAI GPT-4 to summarize chat messages
 - **AI Trading Recommendations**: Get structured trading advice based on market views and investment thesis
+- **Usage Analytics**: Track and visualize command usage with time-series charts and category breakdowns
 - **Stock Charts**: Generates comprehensive stock charts using Yahoo Finance data
 - **Portfolio Analysis**: Equal-weighted and custom-weighted portfolio backtesting
 - **SQLite Storage**: Stores chat messages for summarization
@@ -17,6 +18,7 @@ A Go-based Telegram bot that provides AI-powered text summarization, trading rec
 
 - `/summary [hours]` - Summarize chat messages from the last N hours (default: 1 hour, max: 48 hours)
 - `/recommend TEXT` - Get AI-powered trading recommendations based on your market view or investment thesis
+- `/usage [Xd]` - View command usage analytics with charts (default: all time, specify days like `/usage 7d`)
 - `/stock SYMBOL [1d|1w|1m]` - Single-symbol 5m mini chart for 1d/1w/1m
 - `/stocks S1 S2 ... [1d|1w|1m]` - Multi-symbol 5m chart; auto-normalizes to % when >2 symbols
 - `/stockx SYMBOL [1m|5m|15m|1h|1d] [1d|5d|1m|3m|6m|1y|2y|5y|10y|30y]` - Single-symbol custom interval/lookback
@@ -282,7 +284,9 @@ internal/
 ├── config/
 │   └── config.go        # Configuration management
 ├── finance/
-│   └── yahoo.go         # Yahoo Finance chart generation
+│   ├── charts.go        # Yahoo Finance chart generation
+│   ├── portfolio_*.go   # Portfolio analysis and backtesting
+│   └── usage_analytics.go # Command usage analytics and visualization
 ├── openai/
 │   ├── summarizer.go    # OpenAI API integration for chat summarization
 │   └── recommender.go   # OpenAI API integration for trading recommendations
@@ -306,10 +310,21 @@ Docker/
 The bot uses SQLite to store chat messages for summarization:
 
 ```sql
+-- Chat messages for summarization
 CREATE TABLE messages (
     chat_id INTEGER,
     user_id INTEGER,
     text TEXT,
+    ts INTEGER
+);
+
+-- Command usage tracking for analytics
+CREATE TABLE command_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id INTEGER,
+    user_id INTEGER,
+    command TEXT,
+    category TEXT,
     ts INTEGER
 );
 ```
@@ -399,6 +414,51 @@ Financials may benefit from higher net interest margins.
 **Risks:**
 • If higher rates trigger recession → stocks fall
 • If inflation collapses or Fed pivots → bonds rally
+```
+
+### Viewing Usage Analytics
+
+Track your bot usage patterns with comprehensive analytics:
+
+- `/usage` - View all-time usage statistics with category breakdown
+- `/usage 7d` - View usage for the last 7 days with time-series charts
+- `/usage 30d` - View usage for the last 30 days
+
+The analytics provide:
+
+- **Text Summary**: Detailed breakdown by category (AI Recommendations, Chat Summaries, Portfolio Analysis, Stock Charts)
+- **Distribution Chart**: Pie chart showing command usage percentages by category
+- **Time Series Chart**: Line chart showing usage trends over time (for time-limited queries)
+
+Categories are automatically organized:
+
+- 🤖 **AI Recommendations**: `/recommend` commands
+- 📝 **Chat Summaries**: `/summary` commands
+- 💼 **Portfolio Analysis**: `/ew-port`, `/port` commands
+- 📈 **Stock Charts**: `/stock`, `/stocks`, `/stockx`, `/stocksx`, `/stocks-index` commands
+
+Example output:
+
+```
+📊 Usage Analytics (7 days)
+
+Total Commands: 42
+
+🤖 AI Recommendations (15 commands, 35.7%)
+  • recommend: 15
+
+📈 Stock Charts (18 commands, 42.9%)
+  • stock: 8
+  • stocks: 5
+  • stockx: 3
+  • stocks-index: 2
+
+💼 Portfolio Analysis (6 commands, 14.3%)
+  • ew-port: 4
+  • port: 2
+
+📝 Chat Summaries (3 commands, 7.1%)
+  • summary: 3
 ```
 
 ### Getting Stock Charts
