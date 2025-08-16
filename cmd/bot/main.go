@@ -18,10 +18,20 @@ func main() {
 	_ = os.MkdirAll(filepath.Dir(cfg.DBPath), 0o755)
 
 	// Debug: Check if database file exists before opening
-	if _, err := os.Stat(cfg.DBPath); os.IsNotExist(err) {
+	if stat, err := os.Stat(cfg.DBPath); os.IsNotExist(err) {
 		log.Printf("db: creating new database file at %s", cfg.DBPath)
 	} else {
-		log.Printf("db: using existing database file at %s", cfg.DBPath)
+		log.Printf("db: using existing database file at %s (size: %d bytes, modified: %s)",
+			cfg.DBPath, stat.Size(), stat.ModTime().Format("2006-01-02 15:04:05"))
+	}
+
+	// Debug: Check the data directory contents
+	if files, err := os.ReadDir(filepath.Dir(cfg.DBPath)); err == nil {
+		log.Printf("db: data directory contents:")
+		for _, file := range files {
+			info, _ := file.Info()
+			log.Printf("  - %s (size: %d, modified: %s)", file.Name(), info.Size(), info.ModTime().Format("2006-01-02 15:04:05"))
+		}
 	}
 
 	db, err := storage.OpenSQLite("file:" + cfg.DBPath + "?_fk=1")

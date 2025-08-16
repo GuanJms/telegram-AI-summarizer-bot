@@ -35,7 +35,7 @@ func (s *Summarizer) Summarize(ctx context.Context, messages []string) (string, 
 		part := strings.Join(msgs[i:end], "\n")
 
 		resp, err := s.cli.Chat.Completions.New(ctx, oa.ChatCompletionNewParams{
-			Model: "gpt-4",
+			Model: "gpt-4o-mini",
 			Messages: []oa.ChatCompletionMessageParamUnion{
 				oa.SystemMessage("You are a concise text-only chat summarizer. Ignore images, videos, stickers, audio, locations, code attachments, and links. Do not include or describe media. Use bullets. Capture decisions, questions, and action items (who/what/when)."),
 				oa.UserMessage("Summarize this group chat excerpt concisely (text only):\n" + part),
